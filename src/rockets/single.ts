@@ -4,7 +4,7 @@ import type { Rocket } from "./types";
 export const single: Rocket = {
   id: "single",
   name: "Classic Single",
-  description: "One 2L bottle as the chamber, three side-cut fins taped near the nozzle.",
+  description: "One 2L bottle as the chamber, three side-cut fins. No nose cone, so it flies base-first with high drag.",
   parts: [
     { kind: "bottle", cut: "full", role: "chamber" },
     { kind: "fins", count: 3, span: 0.07, height: 0.12 },
