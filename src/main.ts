@@ -3,9 +3,11 @@ import { createScene } from "./render/scene";
 import { buildRocketMesh, type RocketMesh } from "./render/rocketMesh";
 import { Trail, Spray } from "./render/effects";
 import { simulate, type Trajectory, type Sample } from "./sim/simulate";
-import { rockets } from "./rockets";
+import { rockets, type Rocket } from "./rockets";
+import { CUSTOM_ROCKET_ID } from "./rockets/validate";
 import { earth } from "./world/world";
 import { deriveSpec } from "./rockets/parts";
+import { initChat } from "./chat";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -48,11 +50,29 @@ bindLabel(speed, "speedVal", (v) => `${v.toFixed(1)}×`);
 
 // --- rocket model ---
 let rocketMesh: RocketMesh | null = null;
-let currentRocket = rockets[0];
+let currentRocket: Rocket = rockets[0];
+/** The one agent-built rocket. Not persisted; replaced on every edit. */
+let customRocket: Rocket | null = null;
 const UP = new THREE.Vector3(0, 1, 0);
 
+const allRockets = () => (customRocket ? [...rockets, customRocket] : rockets);
+
+function setCustomRocket(rocket: Rocket) {
+  customRocket = { ...rocket, id: CUSTOM_ROCKET_ID };
+  let opt = rocketSel.querySelector<HTMLOptionElement>(`option[value="${CUSTOM_ROCKET_ID}"]`);
+  if (!opt) {
+    opt = document.createElement("option");
+    opt.value = CUSTOM_ROCKET_ID;
+    rocketSel.appendChild(opt);
+  }
+  opt.textContent = `✦ ${customRocket.name}`;
+  rocketSel.value = CUSTOM_ROCKET_ID;
+  stopFlight();
+  loadRocket();
+}
+
 function loadRocket() {
-  currentRocket = rockets.find((r) => r.id === rocketSel.value) ?? rockets[0];
+  currentRocket = allRockets().find((r) => r.id === rocketSel.value) ?? rockets[0];
   if (rocketMesh) scene.remove(rocketMesh.group);
   rocketMesh = buildRocketMesh(currentRocket);
   scene.add(rocketMesh.group);
@@ -105,7 +125,10 @@ function launch() {
     `<span style="color:#8d98b8">${spec.chamberCount} chamber${spec.chamberCount > 1 ? "s" : ""}, Cd ${spec.dragCoefficient.toFixed(2)}</span>`;
 }
 $("launch").addEventListener("click", launch);
-window.addEventListener("keydown", (e) => { if (e.code === "Space") { e.preventDefault(); launch(); } });
+window.addEventListener("keydown", (e) => {
+  const typing = e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement;
+  if (e.code === "Space" && !typing) { e.preventDefault(); launch(); }
+});
 
 function sampleAt(traj: Trajectory, t: number, hint: number): { s: Sample; idx: number } {
   const ss = traj.samples;
@@ -165,4 +188,5 @@ function frame(now: number) {
 }
 
 loadRocket();
+initChat({ getRocket: () => currentRocket, onRocket: setCustomRocket });
 requestAnimationFrame(frame);

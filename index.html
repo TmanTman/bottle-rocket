@@ -31,6 +31,38 @@
       #desc { font-size: 11px; color: #8d98b8; margin-top: 4px; line-height: 1.4; }
       #hud { position: fixed; right: 20px; top: 16px; text-align: right; font-size: 13px; color: #b8c2dd; pointer-events: none; }
       #hud div { font-size: 34px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+
+      /* --- chat panel --- */
+      #chat {
+        position: fixed; right: 16px; bottom: 16px; width: 340px; max-height: min(70vh, 640px);
+        display: flex; flex-direction: column;
+        background: rgba(10, 14, 30, 0.78); backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.12); border-radius: 14px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.4); overflow: hidden;
+      }
+      #chat header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+      #chat header h2 { font-size: 13px; margin: 0; letter-spacing: 0.08em; text-transform: uppercase; color: #9fb4ff; }
+      #chat header small { display: block; font-size: 11px; color: #8d98b8; text-transform: none; letter-spacing: 0; margin-top: 2px; }
+      #chatToggle { width: 26px; height: 26px; margin: 0; padding: 0; font-size: 16px; line-height: 1; border-radius: 8px; background: rgba(255,255,255,0.08); box-shadow: none; color: #b8c2dd; }
+      #chat.collapsed #chatLog, #chat.collapsed #chatForm { display: none; }
+      #chatLog { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.45; }
+      .msg { padding: 8px 11px; border-radius: 12px; max-width: 92%; white-space: pre-wrap; word-wrap: break-word; }
+      .msg.user { align-self: flex-end; background: #2c3f8f; color: #fff; border-bottom-right-radius: 4px; }
+      .msg.bot { align-self: flex-start; background: rgba(255,255,255,0.08); color: #e8ecf5; border-bottom-left-radius: 4px; }
+      .msg.pending { color: #8d98b8; animation: pulse 1.2s ease-in-out infinite; }
+      .msg.event { align-self: center; font-size: 11px; color: #b3ff6d; background: rgba(179,255,109,0.1); border: 1px solid rgba(179,255,109,0.25); }
+      .msg.error { align-self: stretch; font-size: 12px; color: #ffb4b4; background: rgba(255,80,80,0.12); border: 1px solid rgba(255,80,80,0.3); }
+      @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+      .tips { display: flex; flex-direction: column; gap: 6px; }
+      .tips button { width: auto; margin: 0; padding: 7px 10px; font-size: 12px; font-weight: 500; letter-spacing: 0; text-align: left;
+        background: rgba(109,139,255,0.12); color: #b8c2dd; border: 1px solid rgba(109,139,255,0.3); border-radius: 10px; box-shadow: none; }
+      .tips button:hover { background: rgba(109,139,255,0.22); color: #fff; }
+      #chatForm { display: flex; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid rgba(255,255,255,0.08); }
+      #chatInput { flex: 1; resize: none; min-height: 38px; max-height: 120px; padding: 9px 11px; font: inherit; font-size: 13px;
+        background: #141a33; color: #fff; border: 1px solid #334; border-radius: 10px; outline: none; }
+      #chatInput:focus { border-color: #6d8bff; }
+      #chatSend { width: auto; margin: 0; padding: 0 14px; font-size: 13px; border-radius: 10px; box-shadow: none; }
+      #chatSend:disabled { opacity: 0.5; cursor: default; }
     </style>
   </head>
   <body>
@@ -52,6 +84,17 @@
       <div id="stats"></div>
     </div>
     <div id="hud"><span>altitude</span><div id="alt">0.0 m</div></div>
+    <section id="chat">
+      <header>
+        <div><h2>Rocket Designer</h2><small>Chat to build or edit a custom rocket</small></div>
+        <button id="chatToggle" type="button" title="Collapse">–</button>
+      </header>
+      <div id="chatLog"></div>
+      <form id="chatForm" autocomplete="off">
+        <textarea id="chatInput" rows="1" placeholder="Describe a rocket…"></textarea>
+        <button id="chatSend" type="submit">Send</button>
+      </form>
+    </section>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
