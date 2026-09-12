@@ -11,6 +11,10 @@ export interface LaunchParams {
   waterFill: number;
   /** Degrees from vertical, tilted toward +X. */
   angleDeg: number;
+  /** Horizontal wind speed in m/s. */
+  windSpeed: number;
+  /** Degrees clockwise around the pad. 0 means blowing along the launch direction (+X). */
+  windDirectionDeg: number;
 }
 
 export interface Sample {
@@ -90,6 +94,12 @@ export function simulate(rocket: Rocket, world: World, launch: LaunchParams): Tr
 
   const angle = (launch.angleDeg * Math.PI) / 180;
   const dir0: Vec3 = [Math.sin(angle), Math.cos(angle), 0];
+  const windAngle = (launch.windDirectionDeg * Math.PI) / 180;
+  const wind: Vec3 = [
+    launch.windSpeed * Math.cos(windAngle),
+    0,
+    launch.windSpeed * Math.sin(windAngle),
+  ];
 
   /** Dead water carried in sealed stages above `from`. */
   const sealedWaterMass = (from: number) =>
@@ -153,7 +163,7 @@ export function simulate(rocket: Rocket, world: World, launch: LaunchParams): Tr
       }
     }
 
-    const rvx = b.vel[0] - world.wind[0], rvy = b.vel[1] - world.wind[1], rvz = b.vel[2] - world.wind[2];
+    const rvx = b.vel[0] - wind[0], rvy = b.vel[1] - wind[1], rvz = b.vel[2] - wind[2];
     const speed = Math.hypot(rvx, rvy, rvz);
     if (speed > 1e-6) {
       const drag = 0.5 * world.airDensity * b.spec.dragCoefficient * b.spec.frontalArea * speed * speed;
