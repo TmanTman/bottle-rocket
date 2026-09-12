@@ -1,7 +1,10 @@
 {
   "name": "bottle-rocket-sim",
+  "main": "server/worker.ts",
   "compatibility_date": "2026-08-31",
+  "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "./dist"
   }
+  // Secret: npx wrangler secret put ANTHROPIC_API_KEY
 }
