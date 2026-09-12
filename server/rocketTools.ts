@@ -4,7 +4,7 @@
  */
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Rocket } from "../src/rockets/types";
-import { deriveSpec } from "../src/rockets/parts";
+import { deriveSpec, deriveStages } from "../src/rockets/parts";
 import { simulate, type LaunchParams } from "../src/sim/simulate";
 import { earth } from "../src/world/world";
 import { buildRocket, LIMITS, RocketValidationError, type RocketDraft } from "../src/rockets/validate";
@@ -45,6 +45,25 @@ const finsPartSchema = {
   additionalProperties: false,
 } as const;
 
+const couplingPartSchema = {
+  type: "object",
+  description: "A stage separator. Everything below it is the booster stage; everything above it is the next stage.",
+  properties: {
+    kind: { type: "string", enum: ["coupling"] },
+    release: {
+      type: "string",
+      enum: ["booster-empty"],
+      description: "Release the lower stage when its water thrust ends.",
+    },
+    delaySeconds: {
+      type: "number",
+      description: `Optional release delay after booster burnout, ${LIMITS.coupling.delaySeconds[0]}..${LIMITS.coupling.delaySeconds[1]} seconds.`,
+    },
+  },
+  required: ["kind", "release"],
+  additionalProperties: false,
+} as const;
+
 export const tools: Anthropic.Beta.BetaTool[] = [
   {
     name: "set_rocket",
@@ -61,8 +80,10 @@ export const tools: Anthropic.Beta.BetaTool[] = [
         color: { type: "string", description: 'Body colour as a CSS hex string, e.g. "#5ec8ff".' },
         parts: {
           type: "array",
-          description: `Bottom to top. First part must be a full-bottle chamber. At most ${LIMITS.maxParts} parts.`,
-          items: { anyOf: [bottlePartSchema, finsPartSchema] },
+          description:
+            `Bottom to top. First part, and the first part after each coupling, must be a full-bottle chamber. ` +
+            `Use coupling parts to split a multi-stage rocket. At most ${LIMITS.maxParts} parts.`,
+          items: { anyOf: [bottlePartSchema, finsPartSchema, couplingPartSchema] },
         },
       },
       required: ["name", "description", "color", "parts"],
@@ -104,15 +125,23 @@ function flightSummary(rocket: Rocket, launch: LaunchParams) {
     flightTimeS: round(t.flightTime, 2),
     burnTimeMs: Math.round(t.burnTime * 1000),
     liftoffMassG: Math.round(t.liftoffMass * 1000),
+    separations: t.separations.map((s) => ({
+      stage: s.stage + 1,
+      timeS: round(s.t, 2),
+      altitudeM: round(s.altitude, 1),
+      speedMs: round(s.speed, 1),
+    })),
   };
 }
 
 function specSummary(rocket: Rocket) {
   const s = deriveSpec(rocket);
+  const stages = deriveStages(rocket);
   return {
     dryMassG: Math.round(s.dryMass * 1000),
     lengthM: round(s.length, 2),
     chamberCount: s.chamberCount,
+    stageCount: stages.length,
     chamberVolumeL: round(s.chamberVolume * 1000, 1),
     dragCoefficient: round(s.dragCoefficient, 2),
   };
