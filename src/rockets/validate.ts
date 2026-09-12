@@ -2,17 +2,19 @@
  * Turns an untrusted rocket draft (from the agent, or later a form) into a valid Rocket.
  * Pure TypeScript, shared by the API server and available to the browser.
  */
-import type { BottleCut, BottlePart, Part, Rocket, TapeJoin } from "./types";
+import type { BottleCut, BottlePart, CouplingPart, Part, Rocket, TapeJoin } from "./types";
 import { deriveSpec } from "./parts";
 
 export const CUSTOM_ROCKET_ID = "custom";
 
 const CUTS: BottleCut[] = ["full", "top-half", "bottom-half", "body-tube"];
 const ROLES: BottlePart["role"][] = ["chamber", "nose", "structure"];
+const RELEASES: CouplingPart["release"][] = ["booster-empty"];
 
 export const LIMITS = {
   maxParts: 10,
   fins: { count: [1, 8], span: [0.02, 0.2], height: [0.03, 0.33] },
+  coupling: { delaySeconds: [0, 0.5] },
 } as const;
 
 /** What the agent hands us. Joins are derived, colour is a CSS hex string. */
@@ -38,6 +40,10 @@ export function autoJoins(parts: Part[]): TapeJoin[] {
   const joins: TapeJoin[] = [];
   let lastBottle = -1;
   parts.forEach((part, i) => {
+    if (part.kind === "coupling") {
+      lastBottle = -1;
+      return;
+    }
     if (lastBottle >= 0) joins.push({ type: "tape", between: [lastBottle, i] });
     if (part.kind === "bottle") lastBottle = i;
   });
@@ -71,7 +77,18 @@ function parsePart(raw: unknown, i: number, problems: string[]): Part | null {
     if (!inRange(height, LIMITS.fins.height)) problems.push(`${at}: fin height must be ${LIMITS.fins.height[0]}..${LIMITS.fins.height[1]} m`);
     return { kind: "fins", count: count as number, span: span as number, height: height as number };
   }
-  problems.push(`${at}: kind must be "bottle" or "fins"`);
+  if (raw.kind === "coupling") {
+    const release = raw.release as CouplingPart["release"];
+    if (!RELEASES.includes(release)) problems.push(`${at}: release must be one of ${RELEASES.join(", ")}`);
+    const delay = raw.delaySeconds;
+    if (delay !== undefined && !inRange(delay, LIMITS.coupling.delaySeconds)) {
+      problems.push(`${at}: delaySeconds must be ${LIMITS.coupling.delaySeconds[0]}..${LIMITS.coupling.delaySeconds[1]} s`);
+    }
+    const coupling: CouplingPart = { kind: "coupling", release };
+    if (delay !== undefined) coupling.delaySeconds = delay as number;
+    return coupling;
+  }
+  problems.push(`${at}: kind must be "bottle", "fins" or "coupling"`);
   return null;
 }
 
@@ -105,11 +122,26 @@ export function buildRocket(draft: RocketDraft): Rocket {
   });
 
   if (parts.length === rawParts.length && parts.length > 0) {
-    const first = parts[0];
-    if (first.kind !== "bottle" || first.role !== "chamber")
-      problems.push('parts[0] is the nozzle end and must be a { kind: "bottle", cut: "full", role: "chamber" }');
+    const stageStarts = [0];
+    parts.forEach((p, i) => {
+      if (p.kind !== "coupling") return;
+      if (i === 0 || i === parts.length - 1) problems.push(`${i === 0 ? "parts[0]" : `parts[${i}]`}: coupling must sit between two stages`);
+      if (parts[i - 1]?.kind === "coupling" || parts[i + 1]?.kind === "coupling")
+        problems.push(`parts[${i}]: coupling cannot be next to another coupling`);
+      stageStarts.push(i + 1);
+    });
+
+    for (const start of stageStarts) {
+      const first = parts[start];
+      if (first?.kind !== "bottle" || first.cut !== "full" || first.role !== "chamber") {
+        problems.push(
+          `parts[${start}] is the nozzle end of stage ${stageStarts.indexOf(start) + 1} and must be a { kind: "bottle", cut: "full", role: "chamber" }`,
+        );
+      }
+    }
+
     const noseIdx = parts.findIndex((p) => p.kind === "bottle" && p.role === "nose");
-    if (noseIdx >= 0 && parts.slice(noseIdx + 1).some((p) => p.kind === "bottle"))
+    if (noseIdx >= 0 && parts.slice(noseIdx + 1).length > 0)
       problems.push("the nose must be the topmost bottle; nothing can sit above it");
     if (parts.filter((p) => p.kind === "bottle" && p.role === "nose").length > 1)
       problems.push("only one nose part is allowed");

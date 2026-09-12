@@ -13,7 +13,7 @@ export interface ChatHooks {
 }
 
 const SUGGESTIONS = [
-  "Build me a two-bottle rocket with a nose cone that goes as high as possible",
+  "Build me a two-stage rocket that goes as high as possible",
   "Give the Dart four bigger fins and make it red",
   "How high would this go at 8 bar with 40% water?",
 ];
