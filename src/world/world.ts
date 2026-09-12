@@ -1,13 +1,13 @@
 /**
  * The world the rocket flies in. All units SI (metres, kilograms, seconds, pascals).
- * Edit these numbers to change the environment. Wind is a placeholder for later.
+ * Edit these numbers to change the environment.
  */
 export interface World {
   gravity: number;        // m/s^2, positive number pulling down (-Y)
   airDensity: number;     // kg/m^3 at sea level
   waterDensity: number;   // kg/m^3
   atmosphericPressure: number; // Pa
-  wind: [number, number, number]; // m/s, world-space vector (not used yet)
+  wind: [number, number, number]; // m/s, world-space ambient wind
 }
 
 export const earth: World = {

@@ -5,12 +5,12 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Rocket } from "../src/rockets/types";
 import { deriveSpec } from "../src/rockets/parts";
-import { simulate } from "../src/sim/simulate";
+import { simulate, type LaunchParams } from "../src/sim/simulate";
 import { earth } from "../src/world/world";
 import { buildRocket, LIMITS, RocketValidationError, type RocketDraft } from "../src/rockets/validate";
 
 /** The launch settings the UI starts with; used as the reference flight in tool results. */
-export const REFERENCE_LAUNCH = { pressureBar: 5, waterFill: 0.35, angleDeg: 10 };
+export const REFERENCE_LAUNCH: LaunchParams = { pressureBar: 5, waterFill: 0.35, angleDeg: 10, windSpeed: 0, windDirectionDeg: 0 };
 
 const bottlePartSchema = {
   type: "object",
@@ -94,7 +94,7 @@ export interface ToolOutcome {
   rocket?: Rocket;
 }
 
-function flightSummary(rocket: Rocket, launch: typeof REFERENCE_LAUNCH) {
+function flightSummary(rocket: Rocket, launch: LaunchParams) {
   const t = simulate(rocket, earth, launch);
   return {
     launch,
@@ -146,7 +146,8 @@ export function executeTool(name: string, input: unknown, current: Rocket | null
   if (name === "simulate_rocket") {
     if (!current) return { isError: true, content: JSON.stringify({ ok: false, problems: ["No rocket is loaded. Call set_rocket first."] }) };
     const raw = (input ?? {}) as Record<string, unknown>;
-    const launch = {
+    const launch: LaunchParams = {
+      ...REFERENCE_LAUNCH,
       pressureBar: clamp(raw.pressureBar, 1, 8, REFERENCE_LAUNCH.pressureBar),
       waterFill: clamp(raw.waterFill, 0, 0.7, REFERENCE_LAUNCH.waterFill),
       angleDeg: clamp(raw.angleDeg, 0, 45, REFERENCE_LAUNCH.angleDeg),

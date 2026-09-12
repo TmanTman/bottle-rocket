@@ -1,12 +1,23 @@
 import * as THREE from "three";
-import type { Rocket, BottleCut } from "../rockets/types";
-import { BOTTLE, cutLength } from "../rockets/parts";
+import type { Rocket, BottleCut, Part } from "../rockets/types";
+import { BOTTLE, COUPLING_LENGTH, cutLength, deriveStages } from "../rockets/parts";
+
+export interface StageMesh {
+  group: THREE.Group;
+  height: number;
+  setWater(fraction: number): void;
+}
 
 export interface RocketMesh {
-  group: THREE.Group;
-  /** Set remaining water 0..1 to animate the chamber emptying. */
-  setWater(fraction: number): void;
-  /** Total height in metres, for camera framing. */
+  /** The attached stack. Origin is the nozzle of the lowest attached stage, +Y up the rocket. */
+  root: THREE.Group;
+  stages: StageMesh[];
+  /** Detach the lowest attached stage. Returns its group, now free to be placed in the scene. */
+  detachBottom(): THREE.Group | null;
+  /** Re-attach everything for a fresh launch. */
+  reset(): void;
+  /** Index of the lowest stage still attached. */
+  attachedFrom(): number;
   height: number;
 }
 
@@ -84,62 +95,65 @@ function volumeTable(pts: THREE.Vector2[]): { ys: number[]; vols: number[] } {
   return { ys, vols };
 }
 
-/**
- * Builds a Three.js model from the parts list. Origin is at the nozzle, +Y is up the rocket.
- * Bottles are lathed from a real 2L silhouette; chambers point neck-down (the nozzle),
- * nose parts point neck-up.
- */
-export function buildRocketMesh(rocket: Rocket): RocketMesh {
+interface Materials {
+  plastic: THREE.Material; tape: THREE.Material; cap: THREE.Material; finMat: THREE.Material;
+  waterMat: THREE.Material; coupling: THREE.Material;
+}
+
+function makeMaterials(color: number): Materials {
+  return {
+    plastic: new THREE.MeshPhysicalMaterial({
+      color, transparent: true, opacity: 0.5, roughness: 0.12, metalness: 0,
+      clearcoat: 1, clearcoatRoughness: 0.08, side: THREE.DoubleSide, depthWrite: false,
+    }),
+    tape: new THREE.MeshStandardMaterial({ color: 0x8c8c8c, roughness: 0.7, metalness: 0.2 }),
+    cap: new THREE.MeshStandardMaterial({ color: 0xd8342a, roughness: 0.5 }),
+    finMat: new THREE.MeshPhysicalMaterial({
+      color, transparent: true, opacity: 0.8, roughness: 0.2, clearcoat: 0.8, side: THREE.DoubleSide,
+    }),
+    waterMat: new THREE.MeshPhysicalMaterial({ color: 0x2f8fff, transparent: true, opacity: 0.78, roughness: 0.05 }),
+    coupling: new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4, metalness: 0.6 }),
+  };
+}
+
+/** Build one stage from its parts. Origin at the stage's nozzle. */
+function buildStage(parts: Part[], mats: Materials, hasCouplingAbove: boolean): StageMesh {
   const group = new THREE.Group();
   const R = BOTTLE.radius;
-
-  const plastic = new THREE.MeshPhysicalMaterial({
-    color: rocket.color, transparent: true, opacity: 0.5, roughness: 0.12, metalness: 0,
-    clearcoat: 1, clearcoatRoughness: 0.08, side: THREE.DoubleSide, depthWrite: false,
-  });
-  const tape = new THREE.MeshStandardMaterial({ color: 0x8c8c8c, roughness: 0.7, metalness: 0.2 });
-  const cap = new THREE.MeshStandardMaterial({ color: 0xd8342a, roughness: 0.5 });
-  const finMat = new THREE.MeshPhysicalMaterial({
-    color: rocket.color, transparent: true, opacity: 0.8, roughness: 0.2, clearcoat: 0.8, side: THREE.DoubleSide,
-  });
-  const waterMat = new THREE.MeshPhysicalMaterial({ color: 0x2f8fff, transparent: true, opacity: 0.78, roughness: 0.05 });
-
   interface WaterSlot { mesh: THREE.Mesh; profile: THREE.Vector2[]; table: ReturnType<typeof volumeTable>; last: number }
   const waters: WaterSlot[] = [];
   let y = 0;
   let lastBottleBottom = 0;
 
-  for (const part of rocket.parts) {
+  for (const part of parts) {
     if (part.kind === "bottle") {
       const h = cutLength(part.cut);
       const neckUp = part.role === "nose";
       const profile = cutProfile(part.cut, neckUp);
-      const shell = new THREE.Mesh(new THREE.LatheGeometry(profile, 48), plastic);
+      const shell = new THREE.Mesh(new THREE.LatheGeometry(profile, 48), mats.plastic);
       shell.position.y = y;
       group.add(shell);
 
       if (neckUp) {
-        const c = new THREE.Mesh(new THREE.CylinderGeometry(NECK_R * 1.1, NECK_R * 1.1, 0.016, 24), cap);
+        const c = new THREE.Mesh(new THREE.CylinderGeometry(NECK_R * 1.1, NECK_R * 1.1, 0.016, 24), mats.cap);
         c.position.y = y + h + 0.008;
         group.add(c);
       }
       if (part.role === "chamber") {
-        // Water occupies the neck end; shrink the profile slightly so it sits inside the shell.
         const wp = profile.map((p) => new THREE.Vector2(p.x * 0.96, p.y));
-        const w = new THREE.Mesh(new THREE.BufferGeometry(), waterMat);
+        const w = new THREE.Mesh(new THREE.BufferGeometry(), mats.waterMat);
         w.position.y = y;
         group.add(w);
         waters.push({ mesh: w, profile: wp, table: volumeTable(wp), last: -1 });
       }
       if (y > 0) {
-        const band = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.03, R * 1.03, 0.035, 48, 1, true), tape);
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.03, R * 1.03, 0.035, 48, 1, true), mats.tape);
         band.position.y = y;
         group.add(band);
       }
       lastBottleBottom = y;
       y += h;
-    } else {
-      // Fins: root sits on the straight body just above the shoulder, swept trailing edge.
+    } else if (part.kind === "fins") {
       const shape = new THREE.Shape();
       shape.moveTo(0, 0);
       shape.lineTo(part.span, -part.height * 0.4);
@@ -148,7 +162,7 @@ export function buildRocketMesh(rocket: Rocket): RocketMesh {
       shape.closePath();
       const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.002, bevelEnabled: false });
       for (let i = 0; i < part.count; i++) {
-        const fin = new THREE.Mesh(geo, finMat);
+        const fin = new THREE.Mesh(geo, mats.finMat);
         const pivot = new THREE.Group();
         fin.position.set(R * 0.985, lastBottleBottom + SHOULDER_END * 0.92, -0.001);
         pivot.add(fin);
@@ -156,6 +170,14 @@ export function buildRocketMesh(rocket: Rocket): RocketMesh {
         group.add(pivot);
       }
     }
+  }
+
+  if (hasCouplingAbove) {
+    // Release coupling: a dark collar that grips the next stage's neck.
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, COUPLING_LENGTH, 32), mats.coupling);
+    collar.position.y = y + COUPLING_LENGTH / 2;
+    group.add(collar);
+    y += COUPLING_LENGTH;
   }
 
   const setWater = (fraction: number) => {
@@ -181,5 +203,48 @@ export function buildRocketMesh(rocket: Rocket): RocketMesh {
   };
   setWater(0.35);
 
-  return { group, setWater, height: y };
+  return { group, height: y, setWater };
+}
+
+/**
+ * Builds a Three.js model from the parts list, one group per stage. Chambers point
+ * neck-down (the nozzle), nose parts point neck-up. Stages can be detached in flight.
+ */
+export function buildRocketMesh(rocket: Rocket): RocketMesh {
+  const mats = makeMaterials(rocket.color);
+  const stageSpecs = deriveStages(rocket);
+  const stages = stageSpecs.map((st) => buildStage(st.parts, mats, st.coupling !== null));
+  const root = new THREE.Group();
+  let from = 0;
+
+  const layout = () => {
+    let y = 0;
+    for (let i = from; i < stages.length; i++) {
+      stages[i].group.position.set(0, y, 0);
+      stages[i].group.quaternion.identity();
+      y += stages[i].height;
+    }
+  };
+  const reset = () => {
+    from = 0;
+    for (const s of stages) { s.group.removeFromParent(); root.add(s.group); }
+    layout();
+  };
+  reset();
+
+  return {
+    root,
+    stages,
+    height: stages.reduce((s, st) => s + st.height, 0),
+    attachedFrom: () => from,
+    detachBottom: () => {
+      if (from >= stages.length - 1) return null;
+      const g = stages[from].group;
+      root.remove(g);
+      from += 1;
+      layout();
+      return g;
+    },
+    reset,
+  };
 }

@@ -20,6 +20,15 @@
       select, input[type=range] { width: 100%; }
       select { background: #141a33; color: #fff; border: 1px solid #334; border-radius: 8px; padding: 6px; font-size: 13px; }
       input[type=range] { accent-color: #6d8bff; }
+      .wind-row { display: grid; grid-template-columns: 1fr 42px; gap: 10px; align-items: center; }
+      #windArrow {
+        width: 38px; height: 38px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16);
+        background: rgba(255,255,255,0.06); display: grid; place-items: center;
+      }
+      #windArrow::before {
+        content: "↑"; color: #88e5ff; font-size: 26px; line-height: 1;
+        transform: rotate(calc(90deg + var(--wind-angle, 0deg))); transform-origin: center; font-weight: 800;
+      }
       button {
         width: 100%; margin-top: 14px; padding: 12px; font-size: 15px; font-weight: 700; letter-spacing: 0.06em;
         background: linear-gradient(135deg, #ff6b3d, #ff2d75); color: #fff; border: 0; border-radius: 10px; cursor: pointer;
@@ -78,6 +87,13 @@
       <input id="water" type="range" min="0" max="0.7" step="0.01" value="0.35" />
       <label>Launch angle <span id="angleVal"></span></label>
       <input id="angle" type="range" min="0" max="45" step="1" value="10" />
+      <label>Wind speed <span id="windSpeedVal"></span></label>
+      <input id="windSpeed" type="range" min="0" max="5" step="0.1" value="0" />
+      <label>Wind direction <span id="windDirectionVal"></span></label>
+      <div class="wind-row">
+        <input id="windDirection" type="range" min="0" max="360" step="1" value="0" />
+        <div id="windArrow" aria-hidden="true"></div>
+      </div>
       <label>Playback speed <span id="speedVal"></span></label>
       <input id="speed" type="range" min="0.1" max="2" step="0.1" value="1" />
       <button id="launch">LAUNCH</button>

@@ -28,7 +28,20 @@ export interface FinsPart {
   height: number;
 }
 
-export type Part = BottlePart | FinsPart;
+/**
+ * Stage separator. Everything below it is the booster stage, everything above is the
+ * next stage. The coupling seals the upper stage's nozzle until release, then the
+ * lower stage falls away and the upper stage fires its own chamber.
+ */
+export interface CouplingPart {
+  kind: "coupling";
+  /** "booster-empty": release the instant the lower stage's thrust ends. */
+  release: "booster-empty";
+  /** Optional extra delay after the trigger, seconds, to mimic a slow coupling. */
+  delaySeconds?: number;
+}
+
+export type Part = BottlePart | FinsPart | CouplingPart;
 
 export interface TapeJoin {
   type: "tape";
@@ -40,7 +53,10 @@ export interface Rocket {
   id: string;
   name: string;
   description: string;
-  /** Bottom (nozzle end) first, nose last. Fins can appear anywhere; they attach to the previous bottle. */
+  /**
+   * Bottom (nozzle end) first, nose last. Fins attach to the previous bottle.
+   * A "coupling" part splits the list into stages; each stage needs its own chamber.
+   */
   parts: Part[];
   joins: TapeJoin[];
   /** Hex colour for the rendered body. */
