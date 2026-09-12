@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bottle Rocket Simulator</title>
+    <link rel="icon" href="data:," />
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1020; font-family: ui-sans-serif, system-ui, sans-serif; color: #e8ecf5; }
+      #app { position: fixed; inset: 0; }
+      #panel {
+        position: fixed; top: 16px; left: 16px; width: 280px;
+        background: rgba(10, 14, 30, 0.72); backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+      }
+      #panel h1 { font-size: 15px; margin: 0 0 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #9fb4ff; }
+      label { display: block; font-size: 12px; margin: 10px 0 4px; color: #b8c2dd; display: flex; justify-content: space-between; }
+      label span { color: #fff; font-variant-numeric: tabular-nums; }
+      select, input[type=range] { width: 100%; }
+      select { background: #141a33; color: #fff; border: 1px solid #334; border-radius: 8px; padding: 6px; font-size: 13px; }
+      input[type=range] { accent-color: #6d8bff; }
+      button {
+        width: 100%; margin-top: 14px; padding: 12px; font-size: 15px; font-weight: 700; letter-spacing: 0.06em;
+        background: linear-gradient(135deg, #ff6b3d, #ff2d75); color: #fff; border: 0; border-radius: 10px; cursor: pointer;
+        box-shadow: 0 6px 20px rgba(255, 60, 100, 0.4);
+      }
+      button:active { transform: translateY(1px); }
+      #stats { margin-top: 12px; font-size: 12px; line-height: 1.7; color: #b8c2dd; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; }
+      #stats b { color: #fff; font-variant-numeric: tabular-nums; }
+      #desc { font-size: 11px; color: #8d98b8; margin-top: 4px; line-height: 1.4; }
+      #hud { position: fixed; right: 20px; top: 16px; text-align: right; font-size: 13px; color: #b8c2dd; pointer-events: none; }
+      #hud div { font-size: 34px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="panel">
+      <h1>Bottle Rocket Sim</h1>
+      <label>Rocket</label>
+      <select id="rocket"></select>
+      <div id="desc"></div>
+      <label>Pressure <span id="pressureVal"></span></label>
+      <input id="pressure" type="range" min="1" max="8" step="0.1" value="5" />
+      <label>Water fill <span id="waterVal"></span></label>
+      <input id="water" type="range" min="0" max="0.7" step="0.01" value="0.35" />
+      <label>Launch angle <span id="angleVal"></span></label>
+      <input id="angle" type="range" min="0" max="45" step="1" value="10" />
+      <label>Playback speed <span id="speedVal"></span></label>
+      <input id="speed" type="range" min="0.1" max="2" step="0.1" value="1" />
+      <button id="launch">LAUNCH</button>
+      <div id="stats"></div>
+    </div>
+    <div id="hud"><span>altitude</span><div id="alt">0.0 m</div></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
