@@ -10,7 +10,7 @@ Browser-based 3D water-rocket simulator. Vite + TypeScript + Three.js, no backen
 
 ## Layout
 
-- `src/world/world.ts` – environment constants (gravity, air density, wind placeholder).
+- `src/world/world.ts` – environment constants (gravity, air density, ambient wind).
 - `src/rockets/` – one file per rocket design plus `types.ts` (schema), `parts.ts` (2L bottle dimensions and `deriveSpec`), `index.ts` (registry shown in the UI).
 - `src/sim/simulate.ts` – pure physics. `(rocket, world, launchParams) -> Trajectory`. No Three.js here.
 - `src/render/` – Three.js scene, rocket mesh builder (built from the parts list), trail and spray effects.
@@ -32,4 +32,4 @@ Thrust phase is adiabatic air expansion pushing water out of the standard 21.6 m
 
 Quick numeric check without a browser:
 
-    npx -y tsx -e 'import {simulate} from "./src/sim/simulate"; import {rockets} from "./src/rockets"; import {earth} from "./src/world/world"; console.log(simulate(rockets[0], earth, {pressureBar:5, waterFill:0.35, angleDeg:10}).apex)'
+    npx -y tsx -e 'import {simulate} from "./src/sim/simulate"; import {rockets} from "./src/rockets"; import {earth} from "./src/world/world"; console.log(simulate(rockets[0], earth, {pressureBar:5, waterFill:0.35, angleDeg:10, windSpeed:0, windDirectionDeg:0}).apex)'

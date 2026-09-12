@@ -24,6 +24,16 @@ shadow.rotation.x = -Math.PI / 2;
 shadow.position.y = padTop + 0.003;
 scene.add(shadow);
 
+const windArrow = new THREE.ArrowHelper(
+  new THREE.Vector3(1, 0, 0),
+  new THREE.Vector3(0, padTop + 0.07, -1.5),
+  1,
+  0x697084,
+  0.24,
+  0.14,
+);
+scene.add(windArrow);
+
 // --- UI wiring ---
 const rocketSel = $<HTMLSelectElement>("rocket");
 for (const r of rockets) {
@@ -34,6 +44,9 @@ for (const r of rockets) {
 const pressure = $<HTMLInputElement>("pressure");
 const water = $<HTMLInputElement>("water");
 const angle = $<HTMLInputElement>("angle");
+const windSpeed = $<HTMLInputElement>("windSpeed");
+const windDirection = $<HTMLInputElement>("windDirection");
+const windArrowEl = $<HTMLDivElement>("windArrow");
 const speed = $<HTMLInputElement>("speed");
 
 const bindLabel = (input: HTMLInputElement, label: string, fmt: (v: number) => string) => {
@@ -45,7 +58,28 @@ const bindLabel = (input: HTMLInputElement, label: string, fmt: (v: number) => s
 bindLabel(pressure, "pressureVal", (v) => `${v.toFixed(1)} bar`);
 bindLabel(water, "waterVal", (v) => `${Math.round(v * 100)}%`);
 bindLabel(angle, "angleVal", (v) => `${v}°`);
+bindLabel(windSpeed, "windSpeedVal", (v) => `${v.toFixed(1)} m/s`);
+bindLabel(windDirection, "windDirectionVal", (v) => `${Math.round(v)}°`);
 bindLabel(speed, "speedVal", (v) => `${v.toFixed(1)}×`);
+
+function updateWindArrow() {
+  const directionDeg = parseFloat(windDirection.value);
+  const windMps = parseFloat(windSpeed.value);
+  const windScale = Math.min(windMps, 5) / 5;
+  windArrowEl.style.setProperty("--wind-angle", `${directionDeg}deg`);
+  windArrowEl.style.opacity = `${0.45 + windScale * 0.55}`;
+
+  const a = (directionDeg * Math.PI) / 180;
+  const dir = new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
+  const length = 0.8 + windScale * 1.4;
+  const center = new THREE.Vector3(0, padTop + 0.07, -1.5);
+  windArrow.position.copy(center).addScaledVector(dir, -length / 2);
+  windArrow.setDirection(dir);
+  windArrow.setLength(length, 0.24, 0.14);
+  windArrow.setColor(windMps > 0 ? 0x88e5ff : 0x697084);
+}
+windSpeed.addEventListener("input", updateWindArrow);
+windDirection.addEventListener("input", updateWindArrow);
 
 // --- rocket model ---
 let rocketMesh: RocketMesh | null = null;
@@ -105,6 +139,8 @@ function launch() {
     pressureBar: parseFloat(pressure.value),
     waterFill: parseFloat(water.value),
     angleDeg: parseFloat(angle.value),
+    windSpeed: parseFloat(windSpeed.value),
+    windDirectionDeg: parseFloat(windDirection.value),
   });
   flight = { traj, t: 0, idx: 0, done: false, debris: [] };
   const spec = traj.spec;
@@ -114,6 +150,7 @@ function launch() {
   $("stats").innerHTML =
     `Apex <b>${traj.apex.toFixed(1)} m</b> · Range <b>${traj.range.toFixed(1)} m</b><br>` +
     `Max speed <b>${traj.maxSpeed.toFixed(1)} m/s</b> · Burn <b>${(traj.burnTime * 1000).toFixed(0)} ms</b><br>` +
+    `Wind <b>${parseFloat(windSpeed.value).toFixed(1)} m/s</b> at <b>${parseFloat(windDirection.value).toFixed(0)}°</b><br>` +
     `Flight <b>${traj.flightTime.toFixed(2)} s</b> · Liftoff mass <b>${(traj.liftoffMass * 1000).toFixed(0)} g</b><br>` +
     (sepLines ? `<span style="color:#ffd37a">${sepLines}</span><br>` : "") +
     `<span style="color:#8d98b8">${spec.chamberCount} chamber${spec.chamberCount > 1 ? "s" : ""}, ${traj.stages.length} stage${traj.stages.length > 1 ? "s" : ""}, Cd ${spec.dragCoefficient.toFixed(2)}</span>`;
@@ -201,4 +238,5 @@ function frame(now: number) {
 }
 
 loadRocket();
+updateWindArrow();
 requestAnimationFrame(frame);
